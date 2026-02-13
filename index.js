@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import bodyParser from "body-parser";
 import twilio from "twilio";
-
+import redis from "./redis.js";
 import { products } from "./products.js";
 import { analyzeUserMessage } from "./manage.js";
 import { keywordSearch } from "./keywordSearch.js";
@@ -26,10 +26,17 @@ app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 3000;
 
-// ------------------ SESSION MEMORY ------------------
+/* ------------------ REDIS SESSION HELPERS ------------------ */
 
-const userSessions = {};
+async function getSession(userNumber) {
+  const data = await redis.get(userNumber);
+  return data ? JSON.parse(data) : { stage: "start", data: {} };
+}
 
+async function saveSession(userNumber, session) {
+  // expire after 24h
+  await redis.set(userNumber, JSON.stringify(session), "EX", 60 * 60 * 24);
+}
 
 /* ------------------ HEALTH CHECK ------------------ */
 
@@ -47,21 +54,15 @@ app.post("/whatsapp", async (req, res) => {
 
     console.log("USER:", incomingMsg);
 
-    // ------------------ SESSION INIT ------------------
+    // ✅ LOAD SESSION FROM REDIS
+    const session = await getSession(userNumber);
 
-    if (!userSessions[userNumber]) {
-      userSessions[userNumber] = {
-        stage: "start",
-        data: {}
-      };
-    }
-
-    const session = userSessions[userNumber];
-
-    // ------------------ STAGE: START ------------------
+    /* ------------------ STAGE: START ------------------ */
 
     if (session.stage === "start") {
       session.stage = "ask_gender";
+
+      await saveSession(userNumber, session);
 
       await client.messages.create({
         from: "whatsapp:+14155238886",
@@ -72,7 +73,7 @@ app.post("/whatsapp", async (req, res) => {
       return res.send("<Response></Response>");
     }
 
-    // ------------------ STAGE: ASK GENDER ------------------
+    /* ------------------ STAGE: ASK GENDER ------------------ */
 
     if (session.stage === "ask_gender") {
 
@@ -94,6 +95,8 @@ app.post("/whatsapp", async (req, res) => {
 
       session.stage = "ask_budget";
 
+      await saveSession(userNumber, session);
+
       await client.messages.create({
         from: "whatsapp:+14155238886",
         to: userNumber,
@@ -103,7 +106,7 @@ app.post("/whatsapp", async (req, res) => {
       return res.send("<Response></Response>");
     }
 
-    // ------------------ STAGE: ASK BUDGET ------------------
+    /* ------------------ STAGE: ASK BUDGET ------------------ */
 
     if (session.stage === "ask_budget") {
 
@@ -123,25 +126,21 @@ app.post("/whatsapp", async (req, res) => {
       session.stage = "recommend";
     }
 
-    // ------------------ RECOMMENDATION STAGE ------------------
+    /* ------------------ RECOMMENDATION STAGE ------------------ */
 
-    // 🧠 Analyze user intent (AI only used here)
     const brain = await analyzeUserMessage(incomingMsg);
     console.log("BRAIN:", brain);
 
-    // Add collected gender to keywords
     let enhancedKeywords = [...brain.keywords];
 
     if (session.data.gender) {
       enhancedKeywords.push(session.data.gender);
     }
 
-    // 🔍 Search products
     const results = keywordSearch(enhancedKeywords, products)
       .filter(p => p.price <= session.data.budget)
       .slice(0, 3);
 
-    // ❌ No results
     if (results.length === 0) {
       await client.messages.create({
         from: "whatsapp:+14155238886",
@@ -152,10 +151,11 @@ app.post("/whatsapp", async (req, res) => {
       session.stage = "start";
       session.data = {};
 
+      await saveSession(userNumber, session);
+
       return res.send("<Response></Response>");
     }
 
-    // 🖼 Send products
     for (const p of results) {
       await client.messages.create({
         from: "whatsapp:+14155238886",
@@ -165,9 +165,11 @@ app.post("/whatsapp", async (req, res) => {
       });
     }
 
-    // 🧠 Reset session after recommendation
+    // reset after recommendation
     session.stage = "start";
     session.data = {};
+
+    await saveSession(userNumber, session);
 
     res.send("<Response></Response>");
 
@@ -179,7 +181,6 @@ app.post("/whatsapp", async (req, res) => {
     );
   }
 });
-
 
 /* ------------------ START SERVER ------------------ */
 
