@@ -2,23 +2,16 @@ import "dotenv/config";
 import express from "express";
 import bodyParser from "body-parser";
 import twilio from "twilio";
-import redis from "./redis.js";
+
 import { products } from "./products.js";
 import { analyzeUserMessage } from "./manage.js";
 import { keywordSearch } from "./keywordSearch.js";
-import {
-  formatNoResultsReply,
-  formatProductMessage
-} from "./replyformatter.js";
-
-/* ------------------ TWILIO CLIENT ------------------ */
+import { formatProductMessage } from "./replyformatter.js";
 
 const client = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
-
-/* ------------------ APP SETUP ------------------ */
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -26,33 +19,35 @@ app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 3000;
 
-/* ------------------ REDIS SESSION HELPERS ------------------ */
-
-async function getSession(userNumber) {
-  const data = await redis.get(userNumber);
-  return data
-    ? JSON.parse(data)
-    : {
-        profile: {
-          gender: null,
-          budget: null,
-          vibe: null,
-          occasion: null
-        },
-        history: [],
-        recommendedOnce: false
-      };
-}
-
-async function saveSession(userNumber, session) {
-  await redis.set(userNumber, JSON.stringify(session), "EX", 60 * 60 * 24);
-}
-
 /* ------------------ HEALTH CHECK ------------------ */
 
 app.get("/", (req, res) => {
-  res.send("WhatsApp AI Bot is running 🚀");
+  res.send("WhatsApp AI Bot running 🚀");
 });
+
+/* ------------------ HUMAN-LIKE OPENING LINE ------------------ */
+
+function getOpeningLine(intent) {
+  const lines = [
+    "Ohh that sounds like a really special gift 😊",
+    "Nice choice — perfumes always make meaningful gifts ✨",
+    "That’s thoughtful of you, I’d love to help with that 💫",
+    "Great idea! Let me find something perfect for this occasion 🎁"
+  ];
+  return lines[Math.floor(Math.random() * lines.length)];
+}
+
+/* ------------------ SMART CLOSING LINE ------------------ */
+
+function getClosingLine() {
+  const lines = [
+    "Tell me which one you like most, and I’ll help you get it quickly.",
+    "Pick your favourite and I’ll guide you through the purchase.",
+    "Let me know which one you’d like to buy and I’ll arrange the next step.",
+    "Just reply with the perfume you like, and I’ll help you order it."
+  ];
+  return lines[Math.floor(Math.random() * lines.length)];
+}
 
 /* ------------------ WHATSAPP WEBHOOK ------------------ */
 
@@ -63,89 +58,35 @@ app.post("/whatsapp", async (req, res) => {
 
     console.log("USER:", incomingMsg);
 
-    // Load session
-    const session = await getSession(userNumber);
-
-    // Store history
-    session.history.push(incomingMsg);
-    session.history = session.history.slice(-10);
-
-    // Analyze message with AI
+    /* 🧠 AI INTENT + KEYWORDS */
     const brain = await analyzeUserMessage(incomingMsg);
     console.log("BRAIN:", brain);
 
-    /* ------------------ UPDATE PROFILE FROM AI ------------------ */
+    const keywords = brain.keywords || [];
 
-    if (brain.gender) session.profile.gender = brain.gender;
-    if (brain.budget) session.profile.budget = brain.budget;
-    if (brain.vibe) session.profile.vibe = brain.vibe;
-    if (brain.occasion) session.profile.occasion = brain.occasion;
+    /* 🔍 PRODUCT SEARCH */
+    const results = keywordSearch(keywords, products).slice(0, 3);
 
-    /* ------------------ GREETING HANDLING ------------------ */
-
-    if (brain.intent === "greeting") {
-      await client.messages.create({
-        from: "whatsapp:+14155238886",
-        to: userNumber,
-        body: "Hey 😊 I’d love to help you pick the perfect perfume. Are you looking for something for yourself or as a gift?"
-      });
-
-      await saveSession(userNumber, session);
-      return res.send("<Response></Response>");
-    }
-
-    /* ------------------ SMART FOLLOW-UP QUESTIONS ------------------ */
-
-    if (!session.profile.gender) {
-      await client.messages.create({
-        from: "whatsapp:+14155238886",
-        to: userNumber,
-        body: "Got it 👍 Is this perfume for a *man* or a *woman*?"
-      });
-
-      await saveSession(userNumber, session);
-      return res.send("<Response></Response>");
-    }
-
-    if (!session.profile.budget) {
-      await client.messages.create({
-        from: "whatsapp:+14155238886",
-        to: userNumber,
-        body: "Nice 🙂 What budget range are you thinking? (Example: 1500, 2500, 4000)"
-      });
-
-      await saveSession(userNumber, session);
-      return res.send("<Response></Response>");
-    }
-
-    /* ------------------ RECOMMENDATION TRIGGER ------------------ */
-
-    const enhancedKeywords = [
-      ...(brain.keywords || []),
-      session.profile.gender,
-      session.profile.vibe,
-      session.profile.occasion
-    ].filter(Boolean);
-
-    const results = keywordSearch(enhancedKeywords, products)
-      .filter(p => p.price <= session.profile.budget)
-      .slice(0, 3);
-
-    /* ------------------ NO RESULTS ------------------ */
-
+    /* ❌ NO RESULTS */
     if (results.length === 0) {
       await client.messages.create({
         from: "whatsapp:+14155238886",
         to: userNumber,
-        body: formatNoResultsReply()
+        body:
+          "I couldn't find a perfect match yet 🤔\n\nTell me a bit more about the perfume you want — for whom or for which occasion?"
       });
 
-      await saveSession(userNumber, session);
       return res.send("<Response></Response>");
     }
 
-    /* ------------------ SEND RECOMMENDATIONS ------------------ */
+    /* 🧠 SEND OPENING LINE */
+    await client.messages.create({
+      from: "whatsapp:+14155238886",
+      to: userNumber,
+      body: getOpeningLine(brain.intent)
+    });
 
+    /* 🖼 SEND PRODUCTS */
     for (const p of results) {
       await client.messages.create({
         from: "whatsapp:+14155238886",
@@ -155,9 +96,12 @@ app.post("/whatsapp", async (req, res) => {
       });
     }
 
-    session.recommendedOnce = true;
-
-    await saveSession(userNumber, session);
+    /* 🧠 SEND CLOSING LINE */
+    await client.messages.create({
+      from: "whatsapp:+14155238886",
+      to: userNumber,
+      body: getClosingLine()
+    });
 
     res.send("<Response></Response>");
 
