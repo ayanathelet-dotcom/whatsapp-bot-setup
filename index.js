@@ -30,11 +30,21 @@ const PORT = process.env.PORT || 3000;
 
 async function getSession(userNumber) {
   const data = await redis.get(userNumber);
-  return data ? JSON.parse(data) : { stage: "start", data: {} };
+  return data
+    ? JSON.parse(data)
+    : {
+        profile: {
+          gender: null,
+          budget: null,
+          vibe: null,
+          occasion: null
+        },
+        history: [],
+        recommendedOnce: false
+      };
 }
 
 async function saveSession(userNumber, session) {
-  // expire after 24h
   await redis.set(userNumber, JSON.stringify(session), "EX", 60 * 60 * 24);
 }
 
@@ -50,96 +60,78 @@ app.post("/whatsapp", async (req, res) => {
   try {
     const incomingMsg = req.body.Body || "";
     const userNumber = req.body.From;
-    const message = incomingMsg.toLowerCase();
 
     console.log("USER:", incomingMsg);
 
-    // ✅ LOAD SESSION FROM REDIS
+    // Load session
     const session = await getSession(userNumber);
 
-    /* ------------------ STAGE: START ------------------ */
+    // Store history
+    session.history.push(incomingMsg);
+    session.history = session.history.slice(-10);
 
-    if (session.stage === "start") {
-      session.stage = "ask_gender";
-
-      await saveSession(userNumber, session);
-
-      await client.messages.create({
-        from: "whatsapp:+14155238886",
-        to: userNumber,
-        body: "Is this perfume for a *man* or a *woman*?"
-      });
-
-      return res.send("<Response></Response>");
-    }
-
-    /* ------------------ STAGE: ASK GENDER ------------------ */
-
-    if (session.stage === "ask_gender") {
-
-      if (message.includes("man") || message.includes("male") || message.includes("husband")) {
-        session.data.gender = "men";
-      } 
-      else if (message.includes("woman") || message.includes("female") || message.includes("wife")) {
-        session.data.gender = "women";
-      } 
-      else {
-        await client.messages.create({
-          from: "whatsapp:+14155238886",
-          to: userNumber,
-          body: "Please reply with *man* or *woman* 😊"
-        });
-
-        return res.send("<Response></Response>");
-      }
-
-      session.stage = "ask_budget";
-
-      await saveSession(userNumber, session);
-
-      await client.messages.create({
-        from: "whatsapp:+14155238886",
-        to: userNumber,
-        body: "What’s your budget range? (Example: 1500, 2000, 3000)"
-      });
-
-      return res.send("<Response></Response>");
-    }
-
-    /* ------------------ STAGE: ASK BUDGET ------------------ */
-
-    if (session.stage === "ask_budget") {
-
-      const budgetMatch = message.match(/\d+/);
-
-      if (!budgetMatch) {
-        await client.messages.create({
-          from: "whatsapp:+14155238886",
-          to: userNumber,
-          body: "Please enter a valid budget like *2000* 😊"
-        });
-
-        return res.send("<Response></Response>");
-      }
-
-      session.data.budget = parseInt(budgetMatch[0]);
-      session.stage = "recommend";
-    }
-
-    /* ------------------ RECOMMENDATION STAGE ------------------ */
-
+    // Analyze message with AI
     const brain = await analyzeUserMessage(incomingMsg);
     console.log("BRAIN:", brain);
 
-    let enhancedKeywords = [...brain.keywords];
+    /* ------------------ UPDATE PROFILE FROM AI ------------------ */
 
-    if (session.data.gender) {
-      enhancedKeywords.push(session.data.gender);
+    if (brain.gender) session.profile.gender = brain.gender;
+    if (brain.budget) session.profile.budget = brain.budget;
+    if (brain.vibe) session.profile.vibe = brain.vibe;
+    if (brain.occasion) session.profile.occasion = brain.occasion;
+
+    /* ------------------ GREETING HANDLING ------------------ */
+
+    if (brain.intent === "greeting") {
+      await client.messages.create({
+        from: "whatsapp:+14155238886",
+        to: userNumber,
+        body: "Hey 😊 I’d love to help you pick the perfect perfume. Are you looking for something for yourself or as a gift?"
+      });
+
+      await saveSession(userNumber, session);
+      return res.send("<Response></Response>");
     }
 
+    /* ------------------ SMART FOLLOW-UP QUESTIONS ------------------ */
+
+    if (!session.profile.gender) {
+      await client.messages.create({
+        from: "whatsapp:+14155238886",
+        to: userNumber,
+        body: "Got it 👍 Is this perfume for a *man* or a *woman*?"
+      });
+
+      await saveSession(userNumber, session);
+      return res.send("<Response></Response>");
+    }
+
+    if (!session.profile.budget) {
+      await client.messages.create({
+        from: "whatsapp:+14155238886",
+        to: userNumber,
+        body: "Nice 🙂 What budget range are you thinking? (Example: 1500, 2500, 4000)"
+      });
+
+      await saveSession(userNumber, session);
+      return res.send("<Response></Response>");
+    }
+
+    /* ------------------ RECOMMENDATION TRIGGER ------------------ */
+
+    const enhancedKeywords = [
+      ...(brain.keywords || []),
+      session.profile.gender,
+      session.profile.vibe,
+      session.profile.occasion
+    ].filter(Boolean);
+
     const results = keywordSearch(enhancedKeywords, products)
-      .filter(p => p.price <= session.data.budget)
+      .filter(p => p.price <= session.profile.budget)
       .slice(0, 3);
+
+    /* ------------------ NO RESULTS ------------------ */
 
     if (results.length === 0) {
       await client.messages.create({
@@ -148,13 +140,11 @@ app.post("/whatsapp", async (req, res) => {
         body: formatNoResultsReply()
       });
 
-      session.stage = "start";
-      session.data = {};
-
       await saveSession(userNumber, session);
-
       return res.send("<Response></Response>");
     }
+
+    /* ------------------ SEND RECOMMENDATIONS ------------------ */
 
     for (const p of results) {
       await client.messages.create({
@@ -165,9 +155,7 @@ app.post("/whatsapp", async (req, res) => {
       });
     }
 
-    // reset after recommendation
-    session.stage = "start";
-    session.data = {};
+    session.recommendedOnce = true;
 
     await saveSession(userNumber, session);
 
