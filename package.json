@@ -1,4 +1,5 @@
 {
+  "start": "node index.js",
   "name": "whatsapp-perfume-bot",
   "version": "1.0.0",
   "description": "WhatsApp AI perfume recommendation bot",

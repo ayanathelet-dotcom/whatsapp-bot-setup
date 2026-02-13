@@ -26,6 +26,11 @@ app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 3000;
 
+// ------------------ SESSION MEMORY ------------------
+
+const userSessions = {};
+
+
 /* ------------------ HEALTH CHECK ------------------ */
 
 app.get("/", (req, res) => {
@@ -37,16 +42,104 @@ app.get("/", (req, res) => {
 app.post("/whatsapp", async (req, res) => {
   try {
     const incomingMsg = req.body.Body || "";
-    const userNumber = req.body.From; // whatsapp:+91XXXXXXXXXX
+    const userNumber = req.body.From;
+    const message = incomingMsg.toLowerCase();
 
     console.log("USER:", incomingMsg);
 
-    // 🧠 Analyze user intent
+    // ------------------ SESSION INIT ------------------
+
+    if (!userSessions[userNumber]) {
+      userSessions[userNumber] = {
+        stage: "start",
+        data: {}
+      };
+    }
+
+    const session = userSessions[userNumber];
+
+    // ------------------ STAGE: START ------------------
+
+    if (session.stage === "start") {
+      session.stage = "ask_gender";
+
+      await client.messages.create({
+        from: "whatsapp:+14155238886",
+        to: userNumber,
+        body: "Is this perfume for a *man* or a *woman*?"
+      });
+
+      return res.send("<Response></Response>");
+    }
+
+    // ------------------ STAGE: ASK GENDER ------------------
+
+    if (session.stage === "ask_gender") {
+
+      if (message.includes("man") || message.includes("male") || message.includes("husband")) {
+        session.data.gender = "men";
+      } 
+      else if (message.includes("woman") || message.includes("female") || message.includes("wife")) {
+        session.data.gender = "women";
+      } 
+      else {
+        await client.messages.create({
+          from: "whatsapp:+14155238886",
+          to: userNumber,
+          body: "Please reply with *man* or *woman* 😊"
+        });
+
+        return res.send("<Response></Response>");
+      }
+
+      session.stage = "ask_budget";
+
+      await client.messages.create({
+        from: "whatsapp:+14155238886",
+        to: userNumber,
+        body: "What’s your budget range? (Example: 1500, 2000, 3000)"
+      });
+
+      return res.send("<Response></Response>");
+    }
+
+    // ------------------ STAGE: ASK BUDGET ------------------
+
+    if (session.stage === "ask_budget") {
+
+      const budgetMatch = message.match(/\d+/);
+
+      if (!budgetMatch) {
+        await client.messages.create({
+          from: "whatsapp:+14155238886",
+          to: userNumber,
+          body: "Please enter a valid budget like *2000* 😊"
+        });
+
+        return res.send("<Response></Response>");
+      }
+
+      session.data.budget = parseInt(budgetMatch[0]);
+      session.stage = "recommend";
+    }
+
+    // ------------------ RECOMMENDATION STAGE ------------------
+
+    // 🧠 Analyze user intent (AI only used here)
     const brain = await analyzeUserMessage(incomingMsg);
     console.log("BRAIN:", brain);
 
-    // 🔍 Search products locally
-    const results = keywordSearch(brain.keywords, products).slice(0, 3);
+    // Add collected gender to keywords
+    let enhancedKeywords = [...brain.keywords];
+
+    if (session.data.gender) {
+      enhancedKeywords.push(session.data.gender);
+    }
+
+    // 🔍 Search products
+    const results = keywordSearch(enhancedKeywords, products)
+      .filter(p => p.price <= session.data.budget)
+      .slice(0, 3);
 
     // ❌ No results
     if (results.length === 0) {
@@ -56,20 +149,26 @@ app.post("/whatsapp", async (req, res) => {
         body: formatNoResultsReply()
       });
 
+      session.stage = "start";
+      session.data = {};
+
       return res.send("<Response></Response>");
     }
 
-    // 🖼 Send products one by one (image + formatted text)
+    // 🖼 Send products
     for (const p of results) {
       await client.messages.create({
         from: "whatsapp:+14155238886",
         to: userNumber,
-        mediaUrl: [p.image], // MUST be Cloudinary HTTPS URL
+        mediaUrl: [p.image],
         body: formatProductMessage(p)
       });
     }
 
-    // ✅ Required Twilio response
+    // 🧠 Reset session after recommendation
+    session.stage = "start";
+    session.data = {};
+
     res.send("<Response></Response>");
 
   } catch (err) {
@@ -80,6 +179,7 @@ app.post("/whatsapp", async (req, res) => {
     );
   }
 });
+
 
 /* ------------------ START SERVER ------------------ */
 
