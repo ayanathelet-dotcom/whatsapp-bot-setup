@@ -1,4 +1,8 @@
-import "dotenv/config";
+// Load .env ONLY in local development
+if (process.env.NODE_ENV !== "production") {
+  await import("dotenv/config");
+}
+
 import express from "express";
 import bodyParser from "body-parser";
 import twilio from "twilio";
@@ -17,8 +21,10 @@ const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-const PORT = process.env.PORT || 3000;
-console.log("ENV PORT:", process.env.PORT);
+// ✅ Always trust Railway's port
+const PORT = process.env.PORT;
+console.log("ENV PORT:", PORT);
+
 
 /* ------------------ HEALTH CHECK ------------------ */
 
