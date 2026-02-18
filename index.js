@@ -29,7 +29,6 @@ app.get("/", (req, res) => {
 
 app.post("/whatsapp", async (req, res) => {
   try {
-
     const incomingMsg = req.body.Body || "";
     const userNumber = req.body.From;
 
@@ -40,10 +39,8 @@ app.post("/whatsapp", async (req, res) => {
     console.log("BRAIN:", brain);
 
     const keywords = brain.keywords || [];
-    const openingLine = brain.openingLine || "Let me help you with that 🙂";
-    const closingLine = brain.closingLine || "Tell me which one you like.";
 
-    /* 🔍 PRODUCT SEARCH */
+    /* 🔍 SEARCH PRODUCTS */
     const results = keywordSearch(keywords, products).slice(0, 3);
 
     /* ❌ NO RESULTS */
@@ -51,20 +48,23 @@ app.post("/whatsapp", async (req, res) => {
       await client.messages.create({
         from: "whatsapp:+14155238886",
         to: userNumber,
-        body: openingLine + "\n\nI couldn't find a perfect match yet 🤔\nTell me more about what you're looking for."
+        body:
+          brain.language === "hindi"
+            ? "Mujhe abhi perfect match nahi mila 🤔\nThoda aur batayein — kis ke liye ya kis occasion ke liye perfume chahiye?"
+            : "I couldn't find the perfect match yet 🤔\nTell me a bit more — for whom or what occasion do you need the perfume?"
       });
 
       return res.send("<Response></Response>");
     }
 
-    /* 🧠 SEND OPENING LINE (AI generated) */
+    /* 🧠 SEND OPENING FIRST */
     await client.messages.create({
       from: "whatsapp:+14155238886",
       to: userNumber,
-      body: openingLine
+      body: brain.opening
     });
 
-    /* 🖼 SEND PRODUCTS */
+    /* 🖼 SEND PRODUCTS IN BETWEEN */
     for (const p of results) {
       await client.messages.create({
         from: "whatsapp:+14155238886",
@@ -74,11 +74,11 @@ app.post("/whatsapp", async (req, res) => {
       });
     }
 
-    /* 🧠 SEND CLOSING LINE (AI generated) */
+    /* 🧠 SEND CLOSING LAST */
     await client.messages.create({
       from: "whatsapp:+14155238886",
       to: userNumber,
-      body: closingLine
+      body: brain.closing
     });
 
     res.send("<Response></Response>");
