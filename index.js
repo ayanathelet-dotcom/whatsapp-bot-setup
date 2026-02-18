@@ -18,6 +18,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 3000;
+console.log("ENV PORT:", process.env.PORT);
 
 /* ------------------ HEALTH CHECK ------------------ */
 
