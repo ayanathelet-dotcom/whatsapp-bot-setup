@@ -1,176 +1,158 @@
 export function keywordSearch(keywords, products) {
 
+/* ---------- NORMALIZE INPUT ---------- */
 
+const cleaned = keywords.map(w => w.toLowerCase());
 
-/* -------------------- NORMALIZATION MAPS -------------------- */
-
-const synonymMap = {
-  husband: "men",
-  wife: "women",
-  man: "men",
-  woman: "women",
-  male: "men",
-  female: "women",
-  girl: "young",
-  boy: "young",
-  masculine: "men",
-  feminine: "women",
-  woody: "wood",
-  smoky: "smoke"
-};
+/* ---------- MAPS ---------- */
 
 const relationshipMap = {
   boyfriend: "boyfriend",
   husband: "husband",
+  father: "father",
+  dad: "father",
+  brother: "brother",
+  uncle: "uncle",
+
   girlfriend: "girlfriend",
   wife: "wife",
-  mom: "mother",
-  mummy: "mother",
   mother: "mother",
-  dad: "father",
-  daddy: "father",
-  father: "father",
-  brother: "brother",
+  mom: "mother",
   sister: "sister",
-  uncle: "uncle",
   aunt: "aunt",
-  aunty: "aunt",
+
+  couple: "couple",
   couples: "couple"
 };
 
-const ageKeywords = ["young", "middle", "old"];
+const relationshipGenderMap = {
+  boyfriend: "men",
+  husband: "men",
+  father: "men",
+  brother: "men",
+  uncle: "men",
+
+  girlfriend: "women",
+  wife: "women",
+  mother: "women",
+  sister: "women",
+  aunt: "women"
+};
+
+const occasionMap = {
+  party: "party",
+  club: "club",
+  office: "office",
+  wedding: "wedding",
+  anniversary: "anniversary",
+  travel: "travel",
+  date: "date",
+  daily: "daily",
+  evening: "evening",
+  function: "function"
+};
 
 const intensityMap = {
-  "light-fragrance": "light",
   light: "light",
   heavy: "heavy",
-  "heavy-fragrance": "heavy"
+  medium: "medium"
 };
 
 const sweetnessMap = {
   sweet: "sweet",
-  "sweet-fragrance": "sweet"
+  mild: "mild",
+  no: "no"
 };
 
-const occasionMap = {
-  wedding: "wedding",
-  anniversary: "anniversary",
-  party: "party",
-  club: "party",
-  travelling: "travel",
-  travel: "travel",
-  office: "office",
-  function: "function",
-  event: "event",
-  date: "date"
-};
+const ageKeywords = ["young","middle","old"];
 
-const stopWords = ["perfume", "fragrance", "scent", "for", "a", "the"];
+/* ---------- EXTRACT USER SIGNALS ---------- */
 
-/* -------------------- MAIN FUNCTION -------------------- */
+const genderKeyword = cleaned.find(w => ["men","women","unisex"].includes(w));
+const relationshipKeyword = cleaned.find(w => relationshipMap[w]);
+const occasionKeyword = cleaned.find(w => occasionMap[w]);
+const intensityKeyword = cleaned.find(w => intensityMap[w]);
+const sweetnessKeyword = cleaned.find(w => sweetnessMap[w]);
+const ageKeyword = cleaned.find(w => ageKeywords.includes(w));
 
+const inferredGender =
+  relationshipKeyword && relationshipGenderMap[relationshipKeyword]
+    ? relationshipGenderMap[relationshipKeyword]
+    : null;
 
+const giftIntent =
+  cleaned.includes("gift") ||
+  cleaned.includes("present") ||
+  cleaned.includes("birthday");
 
-  /* ---------- CLEAN ---------- */
+/* ---------- SCORING ---------- */
 
-  const cleaned = keywords
-    .map(w => synonymMap[w.toLowerCase()] || w.toLowerCase())
-    .filter(w => !stopWords.includes(w));
+let scored = products.map(product => {
 
-  console.log("CLEANED KEYWORDS:", cleaned);
+  let score = 0;
 
-  /* ---------- EXTRACT ---------- */
+/* --- HARD ATTRIBUTE MATCHING --- */
 
-  const genderKeyword = cleaned.find(w => w === "men" || w === "women");
-  const relationshipKeyword = cleaned.find(w => relationshipMap[w]);
-  const ageKeyword = cleaned.find(w => ageKeywords.includes(w));
-  const intensityKeyword = cleaned.find(w => intensityMap[w]);
-  const sweetnessKeyword = cleaned.find(w => sweetnessMap[w]);
-  const occasionKeyword = cleaned.find(w => occasionMap[w]);
+  if (relationshipKeyword &&
+      product.relationship?.includes(relationshipMap[relationshipKeyword]))
+    score += 3;
 
-  /* ---------- INFER GENDER ---------- */
+  if (ageKeyword && product.ageGroup?.includes(ageKeyword))
+    score += 2;
 
-  let inferredGender = null;
+  if (occasionKeyword &&
+      product.occasion?.includes(occasionMap[occasionKeyword]))
+    score += 2.5;
 
-  if (relationshipKeyword) {
-    const maleRelations = ["boyfriend", "husband", "father", "dad", "brother", "uncle"];
-    const femaleRelations = ["girlfriend", "wife", "mother", "mom", "sister", "aunt"];
+  if (intensityKeyword &&
+      product.intensity === intensityMap[intensityKeyword])
+    score += 1.5;
 
-    if (maleRelations.includes(relationshipKeyword)) inferredGender = "men";
-    if (femaleRelations.includes(relationshipKeyword)) inferredGender = "women";
-  }
+  if (sweetnessKeyword &&
+      product.sweetness === sweetnessMap[sweetnessKeyword])
+    score += 1.5;
 
-  /* ---------- SCORING ---------- */
+/* --- TEXT MATCHING --- */
 
-  let scored = products.map(product => {
-    let score = 0;
-    const productGender = product.gender?.toLowerCase();
-
-    // Relationship
-    if (
-      relationshipKeyword &&
-      product.relationship?.includes(
-        relationshipMap[relationshipKeyword]
-      )
-    ) score += 2.5;
-
-    // Age
-    if (ageKeyword && product.ageGroup?.includes(ageKeyword)) score += 2;
-
-    // Occasion
-    if (
-      occasionKeyword &&
-      product.occasion?.includes(
-        occasionMap[occasionKeyword]
-      )
-    ) score += 2;
-
-    // Intensity
-    if (
-      intensityKeyword &&
-      product.intensity === intensityMap[intensityKeyword]
-    ) score += 1.5;
-
-    // Sweetness
-    if (
-      sweetnessKeyword &&
-      product.sweetness === sweetnessMap[sweetnessKeyword]
-    ) score += 1.5;
-
-    // Text match
-    cleaned.forEach(word => {
-      if (product.name.toLowerCase().includes(word)) score += 1;
-      if (product.notes.some(n => n.includes(word))) score += 2;
-    });
-
-    // Popularity
-    if (product.buyersThisMonth) score += product.buyersThisMonth / 1000;
-
-    // Bestseller
-    if (product.bestSeller) score += 2;
-
-    return {
-      ...product,
-      gender: productGender,
-      score
-    };
+  cleaned.forEach(word => {
+    if (product.name.toLowerCase().includes(word)) score += 1.2;
+    if (product.notes.some(n => n.includes(word))) score += 2;
   });
 
-  /* ---------- HARD GENDER FILTER ---------- */
+/* --- GIFT BOOST --- */
 
-  if (genderKeyword) {
-    scored = scored.filter(p => p.gender === genderKeyword);
-  } 
-  else if (inferredGender) {
-    scored = scored.filter(p => p.gender === inferredGender);
-  }
+  if (giftIntent && product.relationship?.length)
+    score += 1.5;
 
-  console.log("AFTER GENDER FILTER:", scored.map(p => p.gender));
+/* --- POPULARITY (SOFT WEIGHT) --- */
 
-  /* ---------- FINAL ---------- */
+  score += (product.buyersThisMonth || 0) / 2000;
 
-  return scored
-    .filter(p => p.score > 0)
-    .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
+/* --- BESTSELLER BONUS (CONTROLLED) --- */
+
+  if (product.bestSeller) score += 1;
+
+/* --- DIVERSITY RANDOMNESS (ANTI-REPETITION) --- */
+
+  score += Math.random() * 0.6;
+
+  return { ...product, score };
+
+});
+
+/* ---------- HARD GENDER FILTER (CRITICAL) ---------- */
+
+if (genderKeyword) {
+  scored = scored.filter(p => p.gender === genderKeyword);
+}
+else if (inferredGender) {
+  scored = scored.filter(p => p.gender === inferredGender);
+}
+
+/* ---------- FINAL RANKING ---------- */
+
+return scored
+  .filter(p => p.score > 1)
+  .sort((a,b) => b.score - a.score)
+  .slice(0,3);
 }
