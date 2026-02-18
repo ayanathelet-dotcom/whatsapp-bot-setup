@@ -22,7 +22,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 // ✅ Always trust Railway's port
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 console.log("ENV PORT:", PORT);
 
 
