@@ -7,14 +7,23 @@ const groq = new Groq({
 export async function analyzeUserMessage(message) {
 
   const prompt = `
-You are an AI assistant for a perfume store.
+You are an AI assistant for a premium perfume store.
 
-Tasks:
+Your job:
 1. Detect user intent
-2. Extract keywords
-3. Decide searchType: keyword or embedding
+2. Extract useful keywords for product search
+3. Generate a warm, natural opening line
+4. Generate a friendly closing line
+5. Reply in SAME LANGUAGE as the user message
 
-Return ONLY JSON.
+Tone:
+• warm
+• human
+• premium
+• helpful
+• short (WhatsApp style)
+
+Return ONLY valid JSON.
 
 Intents:
 product_search
@@ -25,18 +34,19 @@ general_question
 User message:
 "${message}"
 
-JSON:
+JSON format:
 {
   "intent": "",
   "keywords": [],
-  "searchType": ""
+  "openingLine": "",
+  "closingLine": ""
 }
 `;
 
   const response = await groq.chat.completions.create({
     model: "llama-3.1-8b-instant",
     messages: [{ role: "user", content: prompt }],
-    temperature: 0
+    temperature: 0.7
   });
 
   return JSON.parse(response.choices[0].message.content);
