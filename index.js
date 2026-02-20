@@ -91,7 +91,7 @@ app.post("/whatsapp", async (req, res) => {
         from: "whatsapp:+14155238886",
         to: from,
         mediaUrl: [p.image],
-        body: formatProductMessage(p) + `\n\n🛒 Buy Now:\n${checkoutLink}`
+        body: formatProductMessage(p)
       });
     }
 
@@ -127,6 +127,7 @@ app.get("/confirm-order", async (req, res) => {
         `Your order for *${product}* is placed successfully.\n` +
         `Order ID: ${orderId}\n\n` +
         `Your order will be shipped in 3–4 days 🚚`
+        `Thank you for shopping with us ✨`
     });
   }
 
