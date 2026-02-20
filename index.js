@@ -11,6 +11,8 @@ import { products } from "./products.js";
 import { analyzeUserMessage } from "./manage.js";
 import { keywordSearch } from "./keywordSearch.js";
 import { formatProductMessage } from "./replyformatter.js";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const client = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -20,7 +22,12 @@ const client = twilio(
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-app.use(express.static("public"));
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve static files
+app.use(express.static(path.join(__dirname, "public")));
 
 // ✅ Always trust Railway's port
 const PORT = process.env.PORT || 3000;
