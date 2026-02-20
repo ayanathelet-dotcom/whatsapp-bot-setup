@@ -9,6 +9,11 @@ import twilio from "twilio";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import { products } from "./products.js";
+import { analyzeUserMessage } from "./manage.js";
+import { keywordSearch } from "./keywordSearch.js";
+import { formatProductMessage } from "./replyformatter.js";
+
 const client = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
@@ -21,7 +26,7 @@ app.use(bodyParser.json());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// serve static checkout files
+// serve checkout page
 app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 3000;
@@ -29,54 +34,83 @@ const PORT = process.env.PORT || 3000;
 /* ------------------ HEALTH CHECK ------------------ */
 
 app.get("/", (req, res) => {
-  res.send("🚀 Perfume Bot Running");
+  res.send("🚀 Perfume WhatsApp Bot Running");
 });
 
-/* ------------------ WHATSAPP WEBHOOK ------------------ */
+/* ------------------ WHATSAPP BOT ------------------ */
 
 app.post("/whatsapp", async (req, res) => {
-  const incomingMsg = (req.body.Body || "").toLowerCase();
-  const from = req.body.From;
+  try {
+    const incomingMsg = req.body.Body || "";
+    const from = req.body.From;
 
-  let reply =
-    "Tell me what type of perfume you want — citrus, amber, sweet, fresh etc.";
+    console.log("USER:", incomingMsg);
 
-  if (incomingMsg.includes("citrus")) {
-    reply =
-      "Great choice! Citrus Rush is fresh 🍊\n\n" +
-      "Checkout here:\n" +
-      process.env.BASE_URL +
-      "/checkout.html?user=" +
-      encodeURIComponent(from) +
-      "&product=" +
-      encodeURIComponent("Citrus Rush") +
-      "&price=1499" +
-      "&image=https://images.unsplash.com/photo-1582211594533-268f4f1edcb9?q=80&w=600";
+    /* 🧠 AI ANALYSIS */
+    const brain = await analyzeUserMessage(incomingMsg);
+    const keywords = brain.keywords || [];
+
+    /* 🔍 PRODUCT SEARCH */
+    const results = keywordSearch(keywords, products).slice(0, 3);
+
+    /* ❌ NO RESULT */
+    if (results.length === 0) {
+      await client.messages.create({
+        from: "whatsapp:+14155238886",
+        to: from,
+        body: brain.language === "hindi"
+          ? "Mujhe perfect match nahi mila 🤔 Thoda aur batayein."
+          : "I couldn't find the perfect match 🤔 Tell me more."
+      });
+      return res.send("<Response></Response>");
+    }
+
+    /* 🧠 OPENING */
+    await client.messages.create({
+      from: "whatsapp:+14155238886",
+      to: from,
+      body: brain.opening
+    });
+
+    /* 🧴 PRODUCTS */
+    for (const p of results) {
+
+      // checkout link per product
+      const checkoutLink =
+        process.env.BASE_URL +
+        "/checkout.html?user=" +
+        encodeURIComponent(from) +
+        "&product=" +
+        encodeURIComponent(p.name) +
+        "&price=" +
+        encodeURIComponent(p.price) +
+        "&image=" +
+        encodeURIComponent(p.image);
+
+      await client.messages.create({
+        from: "whatsapp:+14155238886",
+        to: from,
+        mediaUrl: [p.image],
+        body: formatProductMessage(p) + `\n\n🛒 Buy Now:\n${checkoutLink}`
+      });
+    }
+
+    /* 🧠 CLOSING */
+    await client.messages.create({
+      from: "whatsapp:+14155238886",
+      to: from,
+      body: brain.closing
+    });
+
+    res.send("<Response></Response>");
+
+  } catch (err) {
+    console.error("BOT ERROR:", err);
+    res.send("<Response></Response>");
   }
-
-  if (incomingMsg.includes("amber")) {
-    reply =
-      "Amber Sky is warm and luxurious ✨\n\n" +
-      "Checkout here:\n" +
-      process.env.BASE_URL +
-      "/checkout.html?user=" +
-      encodeURIComponent(from) +
-      "&product=" +
-      encodeURIComponent("Amber Sky") +
-      "&price=1799" +
-      "&image=https://images.unsplash.com/photo-1594035910387-fea47794261f?q=80&w=600";
-  }
-
-  await client.messages.create({
-    from: "whatsapp:+14155238886",
-    to: from,
-    body: reply
-  });
-
-  res.send("<Response></Response>");
 });
 
-/* ------------------ PAYMENT CONFIRM ROUTE ------------------ */
+/* ------------------ PAYMENT CONFIRM ------------------ */
 
 app.get("/confirm-order", async (req, res) => {
   const user = req.query.user;
@@ -92,7 +126,7 @@ app.get("/confirm-order", async (req, res) => {
         `🎉 Congratulations!\n\n` +
         `Your order for *${product}* is placed successfully.\n` +
         `Order ID: ${orderId}\n\n` +
-        `It will be shipped in 3–4 days 🚚`
+        `Your order will be shipped in 3–4 days 🚚`
     });
   }
 
