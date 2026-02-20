@@ -1,114 +1,140 @@
-// Load .env ONLY in local development
-if (process.env.NODE_ENV !== "production") {
-  await import("dotenv/config");
-}
+require("dotenv").config();
+const express = require("express");
+const bodyParser = require("body-parser");
+const twilio = require("twilio");
 
-import express from "express";
-import bodyParser from "body-parser";
-import twilio from "twilio";
-
-import { products } from "./products.js";
-import { analyzeUserMessage } from "./manage.js";
-import { keywordSearch } from "./keywordSearch.js";
-import { formatProductMessage } from "./replyformatter.js";
-import path from "path";
-import { fileURLToPath } from "url";
+const app = express();
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
 const client = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
 
-const app = express();
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Serve static files
-app.use(express.static(path.join(__dirname, "public")));
-
-// ✅ Always trust Railway's port
 const PORT = process.env.PORT || 3000;
+
 console.log("ENV PORT:", PORT);
 
+/* -------------------------------
+   FAKE DATABASE (PRODUCT MEMORY)
+--------------------------------*/
+let lastUserProduct = {}; 
+// stores last product each user selected
+// format: { "whatsapp:+91xxxx": "Citrus Rush" }
 
-/* ------------------ HEALTH CHECK ------------------ */
 
-app.get("/", (req, res) => {
-  res.send("🚀 Perfume WhatsApp Bot is running!");
+/* -------------------------------
+   GENERATE FAKE ORDER ID
+--------------------------------*/
+function generateOrderId() {
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const nums = Math.floor(100000 + Math.random() * 900000);
+  const randomLetter = letters[Math.floor(Math.random() * letters.length)];
+  return `ORD-${randomLetter}${nums}`;
+}
+
+
+/* -------------------------------
+   WHATSAPP BOT WEBHOOK
+--------------------------------*/
+app.post("/whatsapp", async (req, res) => {
+  const incomingMsg = req.body.Body?.toLowerCase() || "";
+  const from = req.body.From;
+
+  let reply = "";
+
+  // ---- Simple product detection (edit if needed)
+  if (incomingMsg.toLowerCase().includes("citrus")) {
+
+  lastUserProduct[from] = "Citrus Rush";
+
+  reply =
+    "Great choice! Citrus Rush is fresh and energetic 🍊\n\n" +
+    "To order, click checkout:\n" +
+    process.env.BASE_URL +
+    "/demo-payment-success?user=" +
+    encodeURIComponent(from) +
+    "&product=" +
+    encodeURIComponent("Citrus Rush");
+
+} 
+else if (incomingMsg.toLowerCase().includes("amber")) {
+
+  lastUserProduct[from] = "Amber Sky";
+
+  reply =
+    "Amber Sky is warm and luxurious ✨\n\n" +
+    "To order, click checkout:\n" +
+    process.env.BASE_URL +
+    "/demo-payment-success?user=" +
+    encodeURIComponent(from) +
+    "&product=" +
+    encodeURIComponent("Amber Sky");
+  } else {
+    reply =
+      "Hi! Ask me about perfumes like Citrus Rush or Amber Sky, and I’ll help you choose 🌸";
+  }
+
+  res.set("Content-Type", "text/xml");
+  res.send(`
+    <Response>
+      <Message>${reply}</Message>
+    </Response>
+  `);
 });
 
-/* ------------------ WHATSAPP WEBHOOK ------------------ */
 
-app.post("/whatsapp", async (req, res) => {
+/* -------------------------------
+   DEMO CHECKOUT SUCCESS ENDPOINT
+   (CALL THIS AFTER PAY BUTTON)
+--------------------------------*/
+app.get("/demo-payment-success", async (req, res) => {
+  const user = req.query.user;
+
+  if (!user) {
+    return res.send("User missing");
+  }
+
+  const product = lastUserProduct[user] || "your perfume";
+  const orderId = generateOrderId();
+
+  const message = `🎉 Congratulations!
+
+Your order for *${product}* is placed successfully.
+
+🧾 Order ID: ${orderId}
+
+🚚 Your order will be shipped in 3–4 days.
+
+Thank you for shopping with us!`;
+
   try {
-    const incomingMsg = req.body.Body || "";
-    const userNumber = req.body.From;
-
-    console.log("USER:", incomingMsg);
-
-    /* 🧠 AI ANALYSIS */
-    const brain = await analyzeUserMessage(incomingMsg);
-    console.log("BRAIN:", brain);
-
-    const keywords = brain.keywords || [];
-
-    /* 🔍 SEARCH PRODUCTS */
-    const results = keywordSearch(keywords, products).slice(0, 3);
-
-    /* ❌ NO RESULTS */
-    if (results.length === 0) {
-      await client.messages.create({
-        from: "whatsapp:+14155238886",
-        to: userNumber,
-        body:
-          brain.language === "hindi"
-            ? "Mujhe abhi perfect match nahi mila 🤔\nThoda aur batayein — kis ke liye ya kis occasion ke liye perfume chahiye?"
-            : "I couldn't find the perfect match yet 🤔\nTell me a bit more — for whom or what occasion do you need the perfume?"
-      });
-
-      return res.send("<Response></Response>");
-    }
-
-    /* 🧠 SEND OPENING FIRST */
     await client.messages.create({
-      from: "whatsapp:+14155238886",
-      to: userNumber,
-      body: brain.opening
+      body: message,
+      from: process.env.TWILIO_WHATSAPP_NUMBER,
+      to: user,
     });
 
-    /* 🖼 SEND PRODUCTS IN BETWEEN */
-    for (const p of results) {
-      await client.messages.create({
-        from: "whatsapp:+14155238886",
-        to: userNumber,
-        mediaUrl: [p.image],
-        body: formatProductMessage(p)
-      });
-    }
-
-    /* 🧠 SEND CLOSING LAST */
-    await client.messages.create({
-      from: "whatsapp:+14155238886",
-      to: userNumber,
-      body: brain.closing
-    });
-
-    res.send("<Response></Response>");
-
+    res.send("Payment success message sent on WhatsApp ✅");
   } catch (err) {
-    console.error("BOT ERROR:", err);
-
-    res.send(
-      "<Response><Message>Something went wrong. Please try again.</Message></Response>"
-    );
+    console.error(err);
+    res.send("Error sending WhatsApp message");
   }
 });
 
-/* ------------------ START SERVER ------------------ */
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🤖 WhatsApp bot running on port ${PORT}`);
+/* -------------------------------
+   HEALTH ROUTE
+--------------------------------*/
+app.get("/", (req, res) => {
+  res.send("🤖 WhatsApp Perfume Bot Running");
+});
+
+
+/* -------------------------------
+   START SERVER
+--------------------------------*/
+app.listen(PORT, () => {
+  console.log("🤖 WhatsApp bot running on port", PORT);
 });
