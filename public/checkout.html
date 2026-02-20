@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Checkout</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="card">
+  <h2>Perfume Checkout</h2>
+
+  <img id="productImage" width="200">
+
+  <h3 id="productName"></h3>
+  <p id="productPrice"></p>
+
+  <input placeholder="Your Name" required>
+  <input placeholder="Address" required>
+
+  <button onclick="pay()">Pay Now (Demo)</button>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+
+document.getElementById("productName").innerText = params.get("name");
+document.getElementById("productPrice").innerText = "₹" + params.get("price");
+document.getElementById("productImage").src = params.get("image");
+
+function pay(){
+  window.location.href = "/success.html";
+}
+</script>
+
+</body>
+</html>

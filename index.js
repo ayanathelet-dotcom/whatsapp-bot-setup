@@ -20,6 +20,7 @@ const client = twilio(
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+app.use(express.static("public"));
 
 // ✅ Always trust Railway's port
 const PORT = process.env.PORT || 3000;
