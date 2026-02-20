@@ -26,15 +26,34 @@ app.use(bodyParser.json());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// serve checkout page
+// serve static files (checkout page)
 app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 3000;
+
+/* ------------------ TEMP ORDER STORAGE (FOR SHORT LINKS) ------------------ */
+
+const pendingOrders = {}; // demo in-memory store
 
 /* ------------------ HEALTH CHECK ------------------ */
 
 app.get("/", (req, res) => {
   res.send("🚀 Perfume WhatsApp Bot Running");
+});
+
+/* ------------------ SHORT BUY LINK ROUTE ------------------ */
+
+app.get("/buy/:id", (req, res) => {
+  const order = pendingOrders[req.params.id];
+
+  if (!order) {
+    return res.send("Invalid or expired order link.");
+  }
+
+  // redirect to checkout page with real params
+  res.redirect(
+    `/checkout.html?user=${encodeURIComponent(order.user)}&product=${encodeURIComponent(order.product)}&price=${order.price}&image=${encodeURIComponent(order.image)}`
+  );
 });
 
 /* ------------------ WHATSAPP BOT ------------------ */
@@ -51,6 +70,7 @@ app.post("/whatsapp", async (req, res) => {
 
     const results = keywordSearch(keywords, products).slice(0, 3);
 
+    /* ❌ NO RESULT */
     if (results.length === 0) {
       await client.messages.create({
         from: "whatsapp:+14155238886",
@@ -63,27 +83,40 @@ app.post("/whatsapp", async (req, res) => {
       return res.send("<Response></Response>");
     }
 
-    /* OPENING */
+    /* 🧠 OPENING MESSAGE */
     await client.messages.create({
       from: "whatsapp:+14155238886",
       to: from,
       body: brain.opening
     });
 
-    /* PRODUCTS */
+    /* 🧴 PRODUCTS WITH SHORT BUY LINKS */
     for (const p of results) {
-      const checkoutLink =
-        `${process.env.BASE_URL}/checkout.html?user=${encodeURIComponent(from)}&product=${encodeURIComponent(p.name)}&price=${p.price}&image=${encodeURIComponent(p.image)}`;
+
+      // generate short ID
+      const shortId = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+      // store order temporarily
+      pendingOrders[shortId] = {
+        user: from,
+        product: p.name,
+        price: p.price,
+        image: p.image
+      };
+
+      const shortLink = `${process.env.BASE_URL}/buy/${shortId}`;
 
       await client.messages.create({
         from: "whatsapp:+14155238886",
         to: from,
         mediaUrl: [p.image],
-        body: formatProductMessage(p) + `\n\n🛒 Buy Now:\n${checkoutLink}`
+        body:
+          formatProductMessage(p) +
+          `\n\n🛒 *Buy Now:* ${shortLink}`
       });
     }
 
-    /* CLOSING */
+    /* 🧠 CLOSING MESSAGE */
     await client.messages.create({
       from: "whatsapp:+14155238886",
       to: from,
@@ -98,7 +131,7 @@ app.post("/whatsapp", async (req, res) => {
   }
 });
 
-/* ------------------ PAYMENT CONFIRM ------------------ */
+/* ------------------ PAYMENT CONFIRMATION ------------------ */
 
 app.get("/confirm-order", async (req, res) => {
   const user = req.query.user;
