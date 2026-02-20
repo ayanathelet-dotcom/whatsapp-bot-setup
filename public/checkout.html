@@ -2,33 +2,45 @@
 <html>
 <head>
   <title>Checkout</title>
-  <link rel="stylesheet" href="style.css">
+  <style>
+    body{font-family:Arial;background:#f5f5f5;padding:40px}
+    .card{background:white;padding:25px;border-radius:12px;max-width:420px;margin:auto;text-align:center}
+    button{padding:12px 20px;border:none;background:black;color:white;border-radius:8px;cursor:pointer}
+    input{display:block;width:100%;margin:10px 0;padding:10px}
+  </style>
 </head>
 <body>
 
 <div class="card">
   <h2>Perfume Checkout</h2>
 
-  <img id="productImage" width="200">
+  <img id="img" width="200">
 
-  <h3 id="productName"></h3>
-  <p id="productPrice"></p>
+  <h3 id="name"></h3>
+  <p id="price"></p>
 
-  <input placeholder="Your Name" required>
-  <input placeholder="Address" required>
+  <input placeholder="Your Name">
+  <input placeholder="Address">
 
   <button onclick="pay()">Pay Now (Demo)</button>
 </div>
 
 <script>
-const params = new URLSearchParams(window.location.search);
+const p = new URLSearchParams(window.location.search);
 
-document.getElementById("productName").innerText = params.get("name");
-document.getElementById("productPrice").innerText = "₹" + params.get("price");
-document.getElementById("productImage").src = params.get("image");
+const user = p.get("user");
+const product = p.get("product");
+
+document.getElementById("name").innerText = product;
+document.getElementById("price").innerText = "₹" + p.get("price");
+document.getElementById("img").src = p.get("image");
 
 function pay(){
-  window.location.href = "/success.html";
+  window.location.href =
+    "/confirm-order?user=" +
+    encodeURIComponent(user) +
+    "&product=" +
+    encodeURIComponent(product);
 }
 </script>
 
