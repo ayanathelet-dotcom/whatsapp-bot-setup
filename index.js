@@ -37,7 +37,7 @@ console.log("ENV PORT:", PORT);
 /* ------------------ HEALTH CHECK ------------------ */
 
 app.get("/", (req, res) => {
-  res.send("WhatsApp AI Bot running 🚀");
+  res.send("🚀 Perfume WhatsApp Bot is running!");
 });
 
 /* ------------------ WHATSAPP WEBHOOK ------------------ */
