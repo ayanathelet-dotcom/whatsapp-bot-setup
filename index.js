@@ -46,56 +46,44 @@ app.post("/whatsapp", async (req, res) => {
 
     console.log("USER:", incomingMsg);
 
-    /* 🧠 AI ANALYSIS */
     const brain = await analyzeUserMessage(incomingMsg);
     const keywords = brain.keywords || [];
 
-    /* 🔍 PRODUCT SEARCH */
     const results = keywordSearch(keywords, products).slice(0, 3);
 
-    /* ❌ NO RESULT */
     if (results.length === 0) {
       await client.messages.create({
         from: "whatsapp:+14155238886",
         to: from,
-        body: brain.language === "hindi"
-          ? "Mujhe perfect match nahi mila 🤔 Thoda aur batayein."
-          : "I couldn't find the perfect match 🤔 Tell me more."
+        body:
+          brain.language === "hindi"
+            ? "Mujhe perfect match nahi mila 🤔 Thoda aur batayein."
+            : "I couldn't find the perfect match 🤔 Tell me more."
       });
       return res.send("<Response></Response>");
     }
 
-    /* 🧠 OPENING */
+    /* OPENING */
     await client.messages.create({
       from: "whatsapp:+14155238886",
       to: from,
       body: brain.opening
     });
 
-    /* 🧴 PRODUCTS */
+    /* PRODUCTS */
     for (const p of results) {
-
-      // checkout link per product
       const checkoutLink =
-        process.env.BASE_URL +
-        "/checkout.html?user=" +
-        encodeURIComponent(from) +
-        "&product=" +
-        encodeURIComponent(p.name) +
-        "&price=" +
-        encodeURIComponent(p.price) +
-        "&image=" +
-        encodeURIComponent(p.image);
+        `${process.env.BASE_URL}/checkout.html?user=${encodeURIComponent(from)}&product=${encodeURIComponent(p.name)}&price=${p.price}&image=${encodeURIComponent(p.image)}`;
 
       await client.messages.create({
         from: "whatsapp:+14155238886",
         to: from,
         mediaUrl: [p.image],
-        body: formatProductMessage(p)
+        body: formatProductMessage(p) + `\n\n🛒 Buy Now:\n${checkoutLink}`
       });
     }
 
-    /* 🧠 CLOSING */
+    /* CLOSING */
     await client.messages.create({
       from: "whatsapp:+14155238886",
       to: from,
@@ -126,7 +114,7 @@ app.get("/confirm-order", async (req, res) => {
         `🎉 Congratulations!\n\n` +
         `Your order for *${product}* is placed successfully.\n` +
         `Order ID: ${orderId}\n\n` +
-        `Your order will be shipped in 3–4 days 🚚`
+        `Your order will be shipped in 3–4 days 🚚\n` +
         `Thank you for shopping with us ✨`
     });
   }
