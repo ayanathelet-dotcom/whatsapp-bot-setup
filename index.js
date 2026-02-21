@@ -104,7 +104,7 @@ app.post("/whatsapp", async (req, res) => {
         image: p.image
       };
 
-      const shortLink = `${process.env.BASE_URL}/buy/${shortId}`;
+      const shortLink = `${process.env.BASE_URL.replace(/\/$/, "")}/buy/${id}`;
 
       await client.messages.create({
         from: "whatsapp:+14155238886",
