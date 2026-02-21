@@ -31,9 +31,9 @@ app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 3000;
 
-/* ------------------ TEMP ORDER STORAGE (FOR SHORT LINKS) ------------------ */
+/* ------------------ TEMP ORDER STORAGE (SHORT LINKS) ------------------ */
 
-const pendingOrders = {}; // demo in-memory store
+const pendingOrders = {};
 
 /* ------------------ HEALTH CHECK ------------------ */
 
@@ -41,16 +41,15 @@ app.get("/", (req, res) => {
   res.send("🚀 Perfume WhatsApp Bot Running");
 });
 
-/* ------------------ SHORT BUY LINK ROUTE ------------------ */
+/* ------------------ SHORT LINK ROUTE ------------------ */
 
 app.get("/buy/:id", (req, res) => {
   const order = pendingOrders[req.params.id];
 
   if (!order) {
-    return res.send("Invalid or expired order link.");
+    return res.send("<h2>Invalid or expired link</h2>");
   }
 
-  // redirect to checkout page with real params
   res.redirect(
     `/checkout.html?user=${encodeURIComponent(order.user)}&product=${encodeURIComponent(order.product)}&price=${order.price}&image=${encodeURIComponent(order.image)}`
   );
@@ -83,20 +82,18 @@ app.post("/whatsapp", async (req, res) => {
       return res.send("<Response></Response>");
     }
 
-    /* 🧠 OPENING MESSAGE */
+    /* 🧠 OPENING */
     await client.messages.create({
       from: "whatsapp:+14155238886",
       to: from,
       body: brain.opening
     });
 
-    /* 🧴 PRODUCTS WITH SHORT BUY LINKS */
+    /* 🧴 PRODUCTS WITH SHORT LINKS */
     for (const p of results) {
 
-      // generate short ID
       const shortId = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-      // store order temporarily
       pendingOrders[shortId] = {
         user: from,
         product: p.name,
@@ -104,7 +101,8 @@ app.post("/whatsapp", async (req, res) => {
         image: p.image
       };
 
-      const shortLink = `${process.env.BASE_URL.replace(/\/$/, "")}/buy/${id}`;
+      const shortLink =
+        `${process.env.BASE_URL.replace(/\/$/, "")}/buy/${shortId}`;
 
       await client.messages.create({
         from: "whatsapp:+14155238886",
@@ -116,7 +114,7 @@ app.post("/whatsapp", async (req, res) => {
       });
     }
 
-    /* 🧠 CLOSING MESSAGE */
+    /* 🧠 CLOSING */
     await client.messages.create({
       from: "whatsapp:+14155238886",
       to: from,
