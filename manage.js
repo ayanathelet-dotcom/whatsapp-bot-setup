@@ -16,6 +16,16 @@ function getGroqClient() {
   return groq;
 }
 
+/* ------------------ SAFE JSON PARSER ------------------ */
+function safeJSONParse(text) {
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    console.error("❌ JSON PARSE ERROR:", text);
+    return null;
+  }
+}
+
 /* ------------------ MAIN FUNCTION ------------------ */
 
 export async function analyzeUserMessage(message) {
@@ -23,20 +33,28 @@ export async function analyzeUserMessage(message) {
     const client = getGroqClient();
 
     const prompt = `
-You are an AI assistant for a perfume store.
+You are a smart WhatsApp perfume shopping assistant.
 
 Your job:
 1. Detect user intent
-2. Extract keywords for product search
-3. Detect language of user
-4. Generate a warm OPENING line introducing recommendations
-5. Generate a natural CLOSING line encouraging action
+2. Extract  keywords for product search
+3. Detect user's language (English / Hinglish / Hindi)
+4. Generate a SHORT opening message (max 1–2 lines)
+5. Generate a SHORT closing message with a coupon
 
-IMPORTANT:
+IMPORTANT RULES:
 - Reply in SAME language as user
-- Tone must be friendly, warm, human
-- Opening must smoothly introduce product suggestions
-- Closing must encourage purchase or refinement
+- Tone: casual, friendly, human (like WhatsApp chat)
+- Opening MUST be 1–2 short lines only
+- NO long paragraphs, NO explanations
+- Keep it crisp and natural
+- Keywords must be relevant (gender, occasion, mood, relationship etc.)
+
+COUPON RULE:
+Closing message MUST include this offer:
+"Apply code FIRST10 and get 10% off on your first order"
+
+Translate the coupon message into user's language naturally.
 
 Return ONLY valid JSON:
 
@@ -55,7 +73,7 @@ User message:
     const response = await client.chat.completions.create({
       model: "llama-3.1-8b-instant",
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.4
+      temperature: 0.3 // 🔥 lower = more controlled
     });
 
     const content = response.choices?.[0]?.message?.content;
@@ -64,18 +82,35 @@ User message:
       throw new Error("Empty response from Groq");
     }
 
-    return JSON.parse(content);
+    const parsed = safeJSONParse(content);
+
+    if (!parsed) {
+      throw new Error("Invalid JSON from AI");
+    }
+
+    /* ------------------ HARD LIMIT SAFETY ------------------ */
+
+
+    // Fallback safety
+    return {
+      intent: parsed.intent || "unknown",
+      keywords: parsed.keywords || [],
+      language: parsed.language || "english",
+      opening: parsed.opening || "Let me show you some options ✨",
+      closing:
+        parsed.closing ||
+        "Use code FIRST10 & get 10% off on your first order 😉"
+    };
 
   } catch (err) {
     console.error("❌ GROQ ERROR:", err);
 
-    // fallback so bot never crashes
     return {
       intent: "unknown",
       keywords: [],
       language: "english",
       opening: "Let me show you some great perfumes ✨",
-      closing: "Tell me your preference and I’ll help you better 😊"
+      closing: "Use code FIRST10 & get 10% off on your first order 😉"
     };
   }
 }
