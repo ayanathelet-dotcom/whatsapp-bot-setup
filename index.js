@@ -1,4 +1,4 @@
-import "dotenv/config"; // ✅ ALWAYS load env FIRST (fixes AWS issue)
+import "dotenv/config";
 
 import express from "express";
 import bodyParser from "body-parser";
@@ -11,7 +11,7 @@ import { analyzeUserMessage } from "./manage.js";
 import { keywordSearch } from "./keywordSearch.js";
 import { formatProductMessage } from "./replyformatter.js";
 
-/* ------------------ ENV CHECK (IMPORTANT DEBUG) ------------------ */
+/* ------------------ ENV CHECK ------------------ */
 
 console.log("🔑 GROQ LOADED:", !!process.env.GROQ_API_KEY);
 console.log("🔑 BASE_URL:", process.env.BASE_URL);
@@ -32,7 +32,6 @@ app.use(bodyParser.json());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* serve static files */
 app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 3000;
@@ -40,6 +39,25 @@ const PORT = process.env.PORT || 3000;
 /* ------------------ TEMP ORDER STORAGE ------------------ */
 
 const pendingOrders = {};
+
+/* ------------------ PRICE FILTER LOGIC ------------------ */
+
+function filterByBudget(products, budget) {
+  const underBudget = products.filter(p => p.price <= budget);
+
+  if (underBudget.length > 0) {
+    return { type: "exact", data: underBudget };
+  }
+
+  // nearest price
+  let nearest = products.reduce((prev, curr) => {
+    return Math.abs(curr.price - budget) < Math.abs(prev.price - budget)
+      ? curr
+      : prev;
+  });
+
+  return { type: "nearest", data: [nearest] };
+}
 
 /* ------------------ HEALTH CHECK ------------------ */
 
@@ -70,10 +88,34 @@ app.post("/whatsapp", async (req, res) => {
 
     console.log("USER:", incomingMsg);
 
+    /* 🧠 AI BRAIN */
     const brain = await analyzeUserMessage(incomingMsg);
     const keywords = brain.keywords || [];
 
-    const results = keywordSearch(keywords, products).slice(0, 3);
+    /* 🔍 SEARCH PRODUCTS */
+    const searchedProducts = keywordSearch(keywords, products);
+
+    /* 💰 EXTRACT BUDGET */
+    const budgetMatch = incomingMsg.match(/\d+/);
+    const budget = budgetMatch ? parseInt(budgetMatch[0]) : null;
+
+    let results = [];
+    let pricingNote = "";
+
+    /* 🎯 APPLY PRICE LOGIC */
+    if (budget) {
+      const filtered = filterByBudget(searchedProducts, budget);
+
+      if (filtered.type === "exact") {
+        results = filtered.data.slice(0, 3);
+        pricingNote = `💰 Showing perfumes under ₹${budget}`;
+      } else {
+        results = filtered.data;
+        pricingNote = `⚠️ No perfumes under ₹${budget}. Showing closest option.`;
+      }
+    } else {
+      results = searchedProducts.slice(0, 3);
+    }
 
     /* ❌ NO RESULT */
     if (results.length === 0) {
@@ -88,14 +130,23 @@ app.post("/whatsapp", async (req, res) => {
       return res.send("<Response></Response>");
     }
 
-    /* 🧠 OPENING MESSAGE */
+    /* 🧠 OPENING */
     await client.messages.create({
       from: "whatsapp:+14155238886",
       to: from,
       body: brain.opening
     });
 
-    /* 🧴 PRODUCTS LOOP */
+    /* 💰 PRICE NOTE */
+    if (pricingNote) {
+      await client.messages.create({
+        from: "whatsapp:+14155238886",
+        to: from,
+        body: pricingNote
+      });
+    }
+
+    /* 🧴 PRODUCTS */
     for (const p of results) {
 
       const shortId = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -107,9 +158,7 @@ app.post("/whatsapp", async (req, res) => {
         image: p.image
       };
 
-      /* FIX: safe BASE_URL handling */
       const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
-
       const shortLink = `${baseUrl.replace(/\/$/, "")}/buy/${shortId}`;
 
       await client.messages.create({
@@ -120,7 +169,7 @@ app.post("/whatsapp", async (req, res) => {
       });
     }
 
-    /* 🧠 CLOSING MESSAGE */
+    /* 🧠 CLOSING */
     await client.messages.create({
       from: "whatsapp:+14155238886",
       to: from,
