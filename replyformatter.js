@@ -1,28 +1,65 @@
-export function formatNoResultsReply() {
+/* ------------------ NO RESULT MESSAGE ------------------ */
+
+export function formatNoResultsReply(brain) {
   return (
-    "😔 Sorry, I couldn't find a matching perfume.\n" +
-    "Try words like *fresh*, *woody*, *romantic*, or *luxury*."
+    (brain?.language === "hindi"
+      ? "😔 Mujhe perfect perfume nahi mila.\n"
+      : "😔 I couldn't find a perfect perfume match.\n") +
+    "👉 Try keywords like *fresh*, *woody*, *romantic*, *luxury*\n" +
+    "💡 Or tell me your *budget* (example: under 1000)"
   );
 }
+
+/* ------------------ PRODUCT MESSAGE ------------------ */
 
 export function formatProductMessage(p) {
   let message = `🌟 *${p.name}*\n`;
 
+  /* 🧾 Description */
   if (p.description) {
     message += `${p.description}\n\n`;
   }
 
+  /* 🔥 Bestseller Highlight */
   if (p.bestSeller) {
     message += "🔥 *Best Seller*\n";
   }
 
+  /* 👥 Social Proof */
   if (p.buyersThisMonth) {
-    message += `👥 ${p.buyersThisMonth}+ bought this month\n`;
+    message += `👥 ${p.buyersThisMonth}+ people bought this month\n`;
   }
 
-  if (p.price) {
-    message += `💰 Price: ₹${p.price}\n`;
+  /* 🧠 Smart Tagging */
+  if (p.mood && p.mood.length > 0) {
+    message += `✨ Mood: ${p.mood.join(", ")}\n`;
   }
+
+  if (p.useCase && p.useCase.length > 0) {
+    message += `🎯 Best for: ${p.useCase.join(", ")}\n`;
+  }
+
+  /* 💰 PRICE (VERY IMPORTANT PART) */
+  if (p.price) {
+    message += `💰 *Price: ₹${p.price}*\n`;
+  }
+
+  /* 🧠 TRUST BUILDER */
+  message += "\n✔️ Genuine Product\n🚚 Fast Delivery Available";
 
   return message.trim();
+}
+
+/* ------------------ PRICE EDUCATION MESSAGE ------------------ */
+
+export function formatPriceInsight(budget, type) {
+  if (type === "exact") {
+    return `✅ Showing perfumes strictly under ₹${budget}`;
+  }
+
+  return (
+    `⚠️ No perfumes available under ₹${budget}.\n` +
+    `👉 Showing closest available option.\n\n` +
+    `💡 Tip: Premium perfumes usually start from ₹1200+`
+  );
 }

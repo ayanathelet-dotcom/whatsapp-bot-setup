@@ -15,7 +15,12 @@ export const products = [
   occasion: ["office","function","evening"],
   intensity: "heavy",
   sweetness: "no",
-  price: 2499,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 650,
   bestSeller: true,
   priorityWeight: 1.2,
@@ -37,7 +42,12 @@ export const products = [
   occasion: ["club","party","date"],
   intensity: "heavy",
   sweetness: "no",
-  price: 2699,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 820,
   bestSeller: true,
   priorityWeight: 1.3,
@@ -59,7 +69,12 @@ export const products = [
   occasion: ["office","travel","daily"],
   intensity: "light",
   sweetness: "no",
-  price: 1999,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 520,
   bestSeller: false,
   priorityWeight: 1.0,
@@ -81,7 +96,12 @@ export const products = [
   occasion: ["office","formal"],
   intensity: "medium",
   sweetness: "no",
-  price: 2299,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 450,
   bestSeller: false,
   priorityWeight: 1.0,
@@ -103,7 +123,12 @@ export const products = [
   occasion: ["party","anniversary"],
   intensity: "heavy",
   sweetness: "slight",
-  price: 2799,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 610,
   bestSeller: true,
   priorityWeight: 1.2,
@@ -127,7 +152,12 @@ export const products = [
   occasion: ["date","anniversary"],
   intensity: "medium",
   sweetness: "sweet",
-  price: 2199,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 720,
   bestSeller: true,
   priorityWeight: 1.2,
@@ -149,7 +179,12 @@ export const products = [
   occasion: ["party","date"],
   intensity: "light",
   sweetness: "sweet",
-  price: 1999,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 680,
   bestSeller: true,
   priorityWeight: 1.1,
@@ -171,7 +206,12 @@ export const products = [
   occasion: ["function","evening"],
   intensity: "light",
   sweetness: "mild",
-  price: 1899,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 390,
   bestSeller: false,
   priorityWeight: 1.0,
@@ -193,7 +233,12 @@ export const products = [
   occasion: ["date","party"],
   intensity: "light",
   sweetness: "sweet",
-  price: 1799,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 550,
   bestSeller: false,
   priorityWeight: 1.0,
@@ -215,7 +260,12 @@ export const products = [
   occasion: ["anniversary","evening"],
   intensity: "medium",
   sweetness: "sweet",
-  price: 2399,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 610,
   bestSeller: true,
   priorityWeight: 1.2,
@@ -239,7 +289,12 @@ export const products = [
   occasion: ["travel","daily"],
   intensity: "light",
   sweetness: "no",
-  price: 1999,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 430,
   bestSeller: false,
   priorityWeight: 1.0,
@@ -261,7 +316,12 @@ export const products = [
   occasion: ["office","daily"],
   intensity: "light",
   sweetness: "no",
-  price: 1699,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 470,
   bestSeller: false,
   priorityWeight: 1.0,
@@ -283,7 +343,12 @@ export const products = [
   occasion: ["evening","date"],
   intensity: "light",
   sweetness: "mild",
-  price: 1899,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 520,
   bestSeller: false,
   priorityWeight: 1.0,
@@ -305,7 +370,12 @@ export const products = [
   occasion: ["wedding"],
   intensity: "medium",
   sweetness: "sweet",
-  price: 2599,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 780,
   bestSeller: true,
   priorityWeight: 1.3,
@@ -327,7 +397,12 @@ export const products = [
   occasion: ["anniversary","evening"],
   intensity: "heavy",
   sweetness: "no",
-  price: 2899,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 590,
   bestSeller: false,
   priorityWeight: 1.1,
@@ -349,7 +424,12 @@ export const products = [
   occasion: ["daily","office"],
   intensity: "light",
   sweetness: "no",
-  price: 1599,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 410,
   bestSeller: false,
   priorityWeight: 1.0,
@@ -371,7 +451,12 @@ export const products = [
   occasion: ["office","daily"],
   intensity: "light",
   sweetness: "no",
-  price: 1799,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 460,
   bestSeller: false,
   priorityWeight: 1.0,
@@ -393,7 +478,12 @@ export const products = [
   occasion: ["date","party"],
   intensity: "medium",
   sweetness: "sweet",
-  price: 2099,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 640,
   bestSeller: true,
   priorityWeight: 1.1,
@@ -415,7 +505,12 @@ export const products = [
   occasion: ["evening","date"],
   intensity: "medium",
   sweetness: "mild",
-  price: 2199,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 510,
   bestSeller: false,
   priorityWeight: 1.0,
@@ -437,7 +532,12 @@ export const products = [
   occasion: ["club","party"],
   intensity: "heavy",
   sweetness: "no",
-  price: 2799,
+   price: 1500,
+  variants: [
+    { size: "20ml", price: 500 },
+    { size: "50ml", price: 800 },
+    { size: "100ml", price: 1500 }
+  ],
   buyersThisMonth: 720,
   bestSeller: true,
   priorityWeight: 1.2,

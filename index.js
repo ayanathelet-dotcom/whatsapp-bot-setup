@@ -9,7 +9,7 @@ import { fileURLToPath } from "url";
 import { products } from "./products.js";
 import { analyzeUserMessage } from "./manage.js";
 import { keywordSearch } from "./keywordSearch.js";
-import { formatProductMessage } from "./replyformatter.js";
+import { formatProductMessage, formatPriceInsight } from "./replyformatter.js";
 
 /* ------------------ ENV CHECK ------------------ */
 
@@ -40,23 +40,54 @@ const PORT = process.env.PORT || 3000;
 
 const pendingOrders = {};
 
-/* ------------------ PRICE FILTER LOGIC ------------------ */
+/* ------------------ SMART PRICE ENGINE ------------------ */
 
 function filterByBudget(products, budget) {
   const underBudget = products.filter(p => p.price <= budget);
 
+  // ✅ CASE 1: Perfect match
   if (underBudget.length > 0) {
-    return { type: "exact", data: underBudget };
+    return {
+      type: "exact",
+      data: underBudget.sort((a, b) => b.price - a.price)
+    };
   }
 
-  // nearest price
+  // ❌ CASE 2: No match → nearest cheaper OR slightly higher
   let nearest = products.reduce((prev, curr) => {
     return Math.abs(curr.price - budget) < Math.abs(prev.price - budget)
       ? curr
       : prev;
   });
 
-  return { type: "nearest", data: [nearest] };
+  return {
+    type: "nearest",
+    data: [nearest]
+  };
+}
+
+/* ------------------ COMPANY PRICE GUIDE ------------------ */
+
+function getBrandPricingInfo(products, budget) {
+  const brands = {};
+
+  products.forEach(p => {
+    if (!brands[p.brand]) brands[p.brand] = [];
+    brands[p.brand].push(p.price);
+  });
+
+  let message = "ℹ️ *Brand Pricing Guide:*\n\n";
+
+  Object.keys(brands).forEach(brand => {
+    const min = Math.min(...brands[brand]);
+    const max = Math.max(...brands[brand]);
+
+    if (budget < min) {
+      message += `• ${brand} starts from ₹${min}\n`;
+    }
+  });
+
+  return message;
 }
 
 /* ------------------ HEALTH CHECK ------------------ */
@@ -88,11 +119,11 @@ app.post("/whatsapp", async (req, res) => {
 
     console.log("USER:", incomingMsg);
 
-    /* 🧠 AI BRAIN */
+    /* 🧠 AI */
     const brain = await analyzeUserMessage(incomingMsg);
     const keywords = brain.keywords || [];
 
-    /* 🔍 SEARCH PRODUCTS */
+    /* 🔍 SEARCH */
     const searchedProducts = keywordSearch(keywords, products);
 
     /* 💰 EXTRACT BUDGET */
@@ -102,16 +133,20 @@ app.post("/whatsapp", async (req, res) => {
     let results = [];
     let pricingNote = "";
 
-    /* 🎯 APPLY PRICE LOGIC */
+    /* 🎯 PRICE LOGIC */
     if (budget) {
       const filtered = filterByBudget(searchedProducts, budget);
 
       if (filtered.type === "exact") {
         results = filtered.data.slice(0, 3);
-        pricingNote = `💰 Showing perfumes under ₹${budget}`;
+        pricingNote = `✅ Showing perfumes under ₹${budget}`;
       } else {
         results = filtered.data;
-        pricingNote = `⚠️ No perfumes under ₹${budget}. Showing closest option.`;
+
+        pricingNote =
+          `⚠️ No perfumes under ₹${budget}.\n` +
+          `Showing closest option instead.\n\n` +
+          getBrandPricingInfo(products, budget);
       }
     } else {
       results = searchedProducts.slice(0, 3);
@@ -122,10 +157,7 @@ app.post("/whatsapp", async (req, res) => {
       await client.messages.create({
         from: "whatsapp:+14155238886",
         to: from,
-        body:
-          brain.language === "hindi"
-            ? "Mujhe perfect match nahi mila 🤔 Thoda aur batayein."
-            : "I couldn't find the perfect match 🤔 Tell me more."
+        body: "❌ No matching perfumes found. Try something else."
       });
       return res.send("<Response></Response>");
     }
@@ -137,7 +169,7 @@ app.post("/whatsapp", async (req, res) => {
       body: brain.opening
     });
 
-    /* 💰 PRICE NOTE */
+    /* 💰 PRICE MESSAGE */
     if (pricingNote) {
       await client.messages.create({
         from: "whatsapp:+14155238886",
@@ -165,7 +197,9 @@ app.post("/whatsapp", async (req, res) => {
         from: "whatsapp:+14155238886",
         to: from,
         mediaUrl: [p.image],
-        body: formatProductMessage(p) + `\n\n🛒 *Buy Now:* ${shortLink}`
+        body:
+          formatProductMessage(p) +
+          `\n\n🛒 *Buy Now:* ${shortLink}`
       });
     }
 
@@ -184,7 +218,7 @@ app.post("/whatsapp", async (req, res) => {
   }
 });
 
-/* ------------------ PAYMENT CONFIRMATION ------------------ */
+/* ------------------ PAYMENT CONFIRM ------------------ */
 
 app.get("/confirm-order", async (req, res) => {
   try {
@@ -198,23 +232,18 @@ app.get("/confirm-order", async (req, res) => {
         from: "whatsapp:+14155238886",
         to: user,
         body:
-          `🎉 Congratulations!\n\n` +
-          `Your order for *${product}* is placed successfully.\n` +
+          `🎉 Order Confirmed!\n\n` +
+          `Product: *${product}*\n` +
           `Order ID: ${orderId}\n\n` +
-          `Your order will be shipped in 3–4 days 🚚\n` +
-          `Thank you for shopping with us ✨`
+          `Delivery in 3–4 days 🚚`
       });
     }
 
-    res.send(`
-      <h2>✅ Payment Successful</h2>
-      <p>Your order is confirmed.</p>
-      <p>You can close this page.</p>
-    `);
+    res.send("<h2>✅ Payment Successful</h2>");
 
   } catch (err) {
-    console.error("❌ CONFIRM ERROR:", err);
-    res.send("Error processing order");
+    console.error(err);
+    res.send("Error");
   }
 });
 
