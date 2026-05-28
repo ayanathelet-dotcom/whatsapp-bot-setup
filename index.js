@@ -190,7 +190,12 @@ app.post("/whatsapp", async (req, res) => {
         image: p.image
       };
 
-      const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+      const baseUrl = process.env.BASE_URL;
+
+      if (!baseUrl) {
+        throw new Error("❌ BASE_URL not set in .env");
+      }
+
       const shortLink = `${baseUrl.replace(/\/$/, "")}/buy/${shortId}`;
 
       await client.messages.create({
