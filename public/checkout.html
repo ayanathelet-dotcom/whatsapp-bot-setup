@@ -2,64 +2,27 @@
 <html>
 <head>
   <title>Checkout</title>
-  <style>
-    body {
-      font-family: Arial;
-      text-align: center;
-      padding: 20px;
-      background: #f5f5f5;
-    }
-
-    .card {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      max-width: 350px;
-      margin: auto;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    }
-
-    img {
-      width: 100%;
-      border-radius: 10px;
-    }
-
-    input {
-      width: 90%;
-      padding: 10px;
-      margin: 10px 0;
-    }
-
-    button {
-      padding: 12px 20px;
-      background: black;
-      color: white;
-      border: none;
-      cursor: pointer;
-      width: 100%;
-      border-radius: 30px;
-    }
-  </style>
 </head>
-
 <body>
 
-<div class="card">
+<h2>🛒 Checkout</h2>
 
-  <img id="productImage" />
+<img id="productImage" width="200"/>
 
-  <h2 id="productName"></h2>
-  <p id="productPrice"></p>
+<h3 id="productName"></h3>
+<p id="productPrice"></p>
 
-  <input id="name" placeholder="Your Name" />
-  <input id="phone" placeholder="Phone Number" />
+<br>
 
-  <button onclick="placeOrder()">🛒 Buy Now</button>
+<input id="name" placeholder="Your Name" /><br><br>
+<input id="phone" placeholder="Phone Number" /><br><br>
 
-</div>
+<button onclick="placeOrder()">
+  BUY NOW
+</button>
 
 <script>
-  // 📦 GET DATA FROM URL
+  // ✅ GET URL PARAMS
   const params = new URLSearchParams(window.location.search);
 
   const product = params.get("product");
@@ -67,12 +30,12 @@
   const image = params.get("image");
   const user = params.get("user");
 
-  // 🎯 SET DATA
+  // ✅ SHOW DATA
   document.getElementById("productName").innerText = product;
   document.getElementById("productPrice").innerText = "₹" + price;
   document.getElementById("productImage").src = image;
 
-  // 🛒 PLACE ORDER
+  // ✅ PLACE ORDER
   function placeOrder() {
     const name = document.getElementById("name").value;
     const phone = document.getElementById("phone").value;
@@ -82,8 +45,9 @@
       return;
     }
 
-    // 👉 redirect to confirm route
-    window.location.href = `/confirm-order?user=${encodeURIComponent(user)}&product=${encodeURIComponent(product)}`;
+    // redirect to confirm route
+    window.location.href =
+      `/confirm-order?user=${encodeURIComponent(user)}&product=${encodeURIComponent(product)}`;
   }
 </script>
 
