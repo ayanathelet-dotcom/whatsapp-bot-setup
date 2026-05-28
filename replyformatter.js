@@ -30,22 +30,13 @@ export function formatProductMessage(p) {
     message += `👥 ${p.buyersThisMonth}+ people bought this month\n`;
   }
 
-  /* 🧠 Smart Tagging */
-  if (p.mood && p.mood.length > 0) {
-    message += `✨ Mood: ${p.mood.join(", ")}\n`;
-  }
-
-  if (p.useCase && p.useCase.length > 0) {
-    message += `🎯 Best for: ${p.useCase.join(", ")}\n`;
-  }
-
   /* 💰 PRICE (VERY IMPORTANT PART) */
   if (p.price) {
     message += `💰 *Price: ₹${p.price}*\n`;
   }
 
   /* 🧠 TRUST BUILDER */
-  message += "\n✔️ Genuine Product\n🚚 Fast Delivery Available";
+  message += "\n✔️ Fast Delivery Available";
 
   return message.trim();
 }
