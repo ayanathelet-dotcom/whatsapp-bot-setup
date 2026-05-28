@@ -34,10 +34,6 @@ export function formatProductMessage(p) {
   if (p.price) {
     message += `💰 *Price: ₹${p.price}*\n`;
   }
-
-  /* 🧠 TRUST BUILDER */
-  message += "\n✔️ Fast Delivery Available";
-
   return message.trim();
 }
 
