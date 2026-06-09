@@ -196,15 +196,16 @@ app.post("/whatsapp", async (req, res) => {
         throw new Error("❌ BASE_URL not set in .env");
       }
 
-      const shortLink = `${baseUrl.replace(/\/$/, "")}/buy/${shortId}`;
+      const shortLink = `${baseUrl.replace(/\/$/, "")}/buy/${shortId}`.trim();
 
       await client.messages.create({
         from: "whatsapp:+14155238886",
         to: from,
         mediaUrl: [p.image],
-        body:
-          formatProductMessage(p) +
-          `\n\n🛒 *Buy Now:* ${shortLink}`
+        body: `${formatProductMessage(p)}
+
+🛒 Buy Now:
+${shortLink}`
       });
     }
 
